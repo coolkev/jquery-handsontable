@@ -671,12 +671,33 @@ var Handsontable = { //class namespace
         }
         current.row = start.row;
         current.col = start.col;
+
+          var refreshRows = false, refreshCols = false;
+        if (priv.settings.minSpareRows && rlen > self.rowCount) {
+          
+          for (var i=self.rowCount;i<rlen;i++) {
+            datamap.createRow();
+            grid.createRow();
+            refreshRows = true;
+          }
+        }
+
+
         for (r = 0; r < rlen; r++) {
           if ((end && current.row > end.row) || (!priv.settings.minSpareRows && current.row > self.rowCount - 1)) {
             break;
           }
           current.col = start.col;
           clen = input[r] ? input[r].length : 0;
+            
+            
+            if (priv.settings.minSpareCols  && clen > self.colCount) {
+              for (i=self.colCount;i<clen;i++) {
+                datamap.createCol();
+                grid.createCol();
+                refreshCols = true;
+              }
+            }
           for (c = 0; c < clen; c++) {
             if ((end && current.col > end.col) || (!priv.settings.minSpareCols && current.col > self.colCount - 1)) {
               break;
@@ -697,6 +718,14 @@ var Handsontable = { //class namespace
         }
         if (setData.length>0) {
             endTd = self.setDataAtCell(setData, null, null, null, source || 'populateFromArray');
+            
+            if (refreshRows) {
+            self.blockedCols.refresh();
+          }
+          if (refreshCols) {
+            self.blockedRows.refresh();
+          }
+            
             return endTd;
         }
       },
@@ -2138,7 +2167,7 @@ var Handsontable = { //class namespace
         changes[i].splice(2, 0, datamap.get(changes[i][0], changes[i][1])); //add old value at index 2
       }
 
-      self.container.triggerHandler("beforedatachange.handsontable", [changes]);
+      self.container.triggerHandler("beforedatachange.handsontable", [changes, source || 'edit']);
 
       for (i = 0, ilen = changes.length; i < ilen; i++) {
         if (changes[i][3] === false) {
@@ -2453,28 +2482,77 @@ var Handsontable = { //class namespace
      * @public
      * @return {Object}
      */
-        this.getCellMeta = function (rowOrCell, col) {
-            var cell = $(typeof rowOrCell == "number" ? self.getCell(rowOrCell, col) : rowOrCell);
-            var locked = cell.data('readOnly');
-            //var formula = cell.data('formula');
-            var result = {};
-            if (locked)
-                result.locked = true;
-            //        if (formula) {
-            //            result.formula = formula;
-            //        }
-            return result;
-        };
-        /**
-        * Returns 2-dimensional array with meta data object corresponding to params row, col
-        * @public
-        * @return {Array}
-        */
-        this.getMeta = function () {
-            return $.map(priv.tableBody.childNodes, function (tr) {
-                return [$.map($(tr.childNodes).slice(self.blockedCols.count()), self.getCellMeta)];
+    this.getCellMeta = function (rowOrCell, col) {
+        var cell = $(typeof rowOrCell == "number" ? self.getCell(rowOrCell, col) : rowOrCell);
+        var locked = cell.data('readOnly');
+        
+        var result = {};
+        if (locked)
+            result.locked = true;
+        
+        return result;
+    };
+      
+    /**
+    * Returns 2-dimensional array with meta data object corresponding to params row, col
+    * @public
+    * @return {Array}
+    */
+    this.getMeta = function () {
+        var lastRowWithMeta = -1;
+        var rows = $.map(priv.tableBody.childNodes, function (tr,rowIndex) {
+            var cells = $(tr.childNodes).slice(self.blockedCols.count());
+            var lastColumnWithMeta = -1;
+            var row = $.map(cells, function (cell,colIndex) {
+                var cellMeta = self.getCellMeta(cell);
+                if (!$.isEmptyObject(cellMeta))
+                    lastColumnWithMeta = colIndex;
+                return cellMeta;
             });
-        };
+            if (lastColumnWithMeta>-1) {
+                lastRowWithMeta = rowIndex;
+                return [row.slice(0,lastColumnWithMeta+1)];
+            }
+            
+            return [[]];
+        });
+
+        return rows.slice(0, lastRowWithMeta+1);
+    };
+      
+      
+    /**
+        * Sets cell meta data
+        * @param {Number} row
+        * @param {Number} col
+     * @public
+     * @return {Object}
+     */
+    this.setCellMeta = function (row, col, meta) {
+        var cell = self.getCell(row, col);
+
+        var locked = typeof meta.locked !== "undefined" && meta.locked;
+        $(cell).data("readOnly", locked).toggleClass('locked', locked);
+
+        return cell;
+    };
+      
+    /**
+    * Sets meta data on all cells
+    * @public
+    * @param {Array} 2-dimensional array with meta data
+    */
+    this.setMeta = function (meta) {
+        for (var r=0;r<self.rowCount;r++) {
+            var row = r<meta.length ? meta[r] : [];
+            for (var c=0; c<self.colCount;c++) {
+                var cellMeta = c<row.length ? row[c] : {};
+
+                self.setCellMeta(r, c, cellMeta);
+            }
+        }
+
+    };
       
 
     /**

@@ -34,7 +34,7 @@
   <style type="text/css">
     #exampleGrid {
       width: 680px;
-      height: 300px;
+      height: 600px;
       overflow: scroll
     }
 
@@ -68,22 +68,35 @@
   
   <div id="exampleGrid" class="dataTable"></div>
   
-	<input type="button" id="showMeta" value="Show Meta"/><br/>
-	<textarea id="meta" style="width:400px;height:100px;"></textarea>
+	<input type="button" id="testMeta" value="Load Test Meta"/>
+	<input type="button" id="getMeta" value="Get Meta from grid"/>
+	<input type="button" id="setMeta" value="Set grid Meta from json below"/>
+	<br/>
+	<textarea id="meta" style="width:500px;height:100px;"></textarea>
 
 	<script>
 		var container = $("#exampleGrid");
 
 		container.handsontable({
 			rows: 10,
-			cols: 8,
+			cols: 4,
+			undo: false, //disabled cause its wiping out formulas
 			rowHeaders: true,
 			colHeaders: true,
-			minSpareCols: 1,
+			minSpareCols: 0,
 			minSpareRows: 1,
 			contextMenu: ["lock_cell", "unlock_cell", "sep1", "row_above", "row_below", "sep2", "col_left", "col_right", "sep3", "remove_row", "remove_col"],
-			locking:true,
-			Formulas: true
+			locking: true,
+			Formulas: {
+
+				functions: {
+
+					currency: function (num) {
+						return "$" + this.round(num, 2);
+					}
+				}
+			}
+
 		});
 
 		var data = [
@@ -95,10 +108,26 @@
 
 		container.handsontable("loadData", data);
 
-		$('#showMeta').click(function () {
+		$('#getMeta').click(function () {
 			var meta = $("#exampleGrid").handsontable('getMeta');
 			$('#meta').val(JSON.stringify(meta));
 		});
+
+		$('#setMeta').click(function () {
+		    var meta = JSON.parse($('#meta').val());
+			$("#exampleGrid").handsontable('setMeta', meta);
+		});
+
+		$('#testMeta').click(function () {
+			var meta = [[], [], [], [], 
+			    [{ }, { "locked": true, "formula": "=currency(B2+B3+B4)" }, { "locked": true, "formula": "=C2+C3+C4" }, { "locked": true, "formula": "=D2+D3+D4" }, { "locked": true, "formula": "=E2+E3+E4" }, { "locked": true, "formula": "=B5+C5+D5+E5" }],
+		        [{}, { "formula": "=percent(B5/F5,1)" }, { "formula": "=percent(C5/F5,1)" }, { "formula": "=percent(D5/F5,1)" }, { "formula": "=percent(E5/F5,1)"}]];
+
+			$('#meta').val(JSON.stringify(meta));
+			$("#exampleGrid").handsontable('setMeta', meta);
+		});
+
+		
   </script>
 
   <h3>About</h3>
